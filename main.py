@@ -1,6 +1,6 @@
 import os, threading
 from flask import Flask
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN","").strip()
@@ -48,8 +48,12 @@ async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.answer("Make me admin in @MindZapAI!", show_alert=True)
         return
 
-    kb = [[InlineKeyboardButton("🌾 Start Farming", url=FARM_LINK)]]
-    await q.edit_message_text(f"🎉 Verified Successfully!\n\nYour Farming Link:\n{FARM_LINK}", reply_markup=InlineKeyboardMarkup(kb))
+    # ✅ MINI APP BUTTON - Telegram এর ভিতরেই খুলবে
+    kb = [[InlineKeyboardButton("🌾 Start Farming", web_app=WebAppInfo(url=FARM_LINK))]]
+    await q.edit_message_text(
+        f"🎉 Verified Successfully!\n\nClick Start Farming to open Farm inside Telegram!",
+        reply_markup=InlineKeyboardMarkup(kb)
+    )
 
 def main():
     threading.Thread(target=run_flask, daemon=True).start()
