@@ -2,7 +2,7 @@ import os
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
 CHANNEL = "@MindZapAI"
 FARM_LINK = "https://mindzap-six.vercel.app"
 TWITTER = "https://x.com/MindZapAI"
@@ -14,7 +14,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("✅ Verify", callback_data="verify")]
     ]
     await update.message.reply_text(
-        "⚡ MindZap AI - First Viral AI on BSC\n\nFarm $ZAP, Invite & Earn 100M Airdrop!\n\n👇 2টা Task করো:\n1. Twitter Follow\n2. Community Join\n\nতারপর Verify ক্লিক করো!",
+        "⚡ MindZap AI - First Viral AI on BSC\n\n"
+        "Farm $ZAP, Invite & Earn 100M Airdrop!\n\n"
+        "👇 2টা Task করো:\n"
+        "1. Twitter Follow\n"
+        "2. Community Join\n\n"
+        "তারপর Verify ক্লিক করো!",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -23,15 +28,20 @@ async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     try:
         m = await context.bot.get_chat_member(CHANNEL, q.from_user.id)
-        if m.status in ['member','administrator','creator']:
+        if m.status in ['member', 'administrator', 'creator']:
             kb = [[InlineKeyboardButton("🌾 Start Farming", url=FARM_LINK)]]
-            await q.edit_message_text(f"🎉 Verified!\n\nLink:\n{FARM_LINK}", reply_markup=InlineKeyboardMarkup(kb))
+            await q.edit_message_text(
+                f"🎉 Verified!\n\nYour Farming Link:\n{FARM_LINK}",
+                reply_markup=InlineKeyboardMarkup(kb)
+            )
         else:
             await q.answer("❌ আগে @MindZapAI Join করো!", show_alert=True)
-    except:
+    except Exception as e:
+        print(f"Error: {e}")
         await q.answer("❌ আমাকে @MindZapAI এর Admin বানাও!", show_alert=True)
 
 def main():
+    print(f"Token loaded: {len(BOT_TOKEN)} chars")
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(verify))
