@@ -2,7 +2,7 @@ import os
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-BOT_TOKEN = os.environ.get("8970687908:AAGtpSAU9Ot3jqgBKAmMYpLUyhzYsSw_o1Y")
+BOT_TOKEN = os.environ.get(8970687908:AAEAXNMLjF3dvDNqirBWAW3iFl6vtz455E8")
 CHANNEL = "@MindZapAI"
 FARM_LINK = "https://mindzap-six.vercel.app"
 TWITTER = "https://x.com/MindZapAI"
