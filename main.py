@@ -1,208 +1,194 @@
-import os, threading
-from flask import Flask, request
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, WebAppInfo
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-
-BOT_TOKEN = os.environ.get("BOT_TOKEN","").strip()
-CHANNEL = "@MindZapAI"
-TWITTER = "https://x.com/MindZapAI"
-
-app_flask = Flask(__name__)
-
 FARM_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>MindZap AI - Farming</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <style>
-:root{--green:#00ff88;--bg:#070707;--card:#121212;--border:#222}
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui}
-body{background:var(--bg);color:#fff;padding:15px}
-.header{display:flex;justify-content:space-between;align-items:center;padding:10px 0}
-.badge{background:var(--green);color:#000;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:bold}
-.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:20px;margin:15px 0}
-.balance{font-size:36px;font-weight:900;color:var(--green)}
-.small{color:#888;font-size:13px}
-.btn{width:100%;padding:16px;border-radius:14px;border:none;font-weight:bold;font-size:16px;margin-top:12px}
-.btn-green{background:var(--green);color:#000}
-.btn-dark{background:#1e1e1e;color:#fff;border:1px solid var(--border)}
-.row{display:flex;gap:10px;margin-top:10px}
-.stat{flex:1;background:#0f0f0f;padding:12px;border-radius:12px;text-align:center}
-.stat b{display:block;color:var(--green);font-size:18px}
-.task{display:flex;justify-content:space-between;align-items:center;padding:14px;background:#0f0f0f;border-radius:12px;margin:8px 0}
-.live{height:120px;overflow:hidden;background:#0a0a0a;border-radius:12px;padding:10px;font-size:13px}
-.input{width:100%;padding:14px;border-radius:10px;background:#000;border:1px solid var(--border);color:#fff;margin-top:10px}
+:root{--bg:#0a0a0a;--card:#171717;--card2:#1f1f1f;--green:#00e676;--text:#fff;--muted:#9ca3af}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Inter,sans-serif}
+body{background:var(--bg);color:var(--text);padding:16px;padding-bottom:100px}
+.top-card{background:linear-gradient(180deg,#1a1a1a,#121212);border:1px solid #262626;border-radius:20px;padding:18px;margin-bottom:16px}
+.balance-label{color:var(--muted);font-size:13px}
+.balance-main{font-size:36px;font-weight:800;margin:4px 0}
+.balance-sub{display:flex;gap:12px;margin-top:8px}
+.badge{background:var(--card2);border:1px solid #2a2a2a;padding:6px 12px;border-radius:20px;font-size:12px;color:var(--muted)}
+.badge b{color:var(--text)}
+.farm-btn{width:100%;margin-top:16px;background:var(--text);color:#000;border:none;padding:16px;border-radius:14px;font-size:16px;font-weight:700}
+.farm-btn.farming{background:#2a2a2a;color:var(--muted)}
+.card{background:var(--card);border:1px solid #262626;border-radius:20px;padding:16px;margin-bottom:16px}
+.card-title{font-weight:700;font-size:16px;margin-bottom:12px}
+.ref-link{background:#0e0e0e;border:1px solid #2a2a2a;border-radius:12px;padding:12px;font-size:13px;word-break:break-all;color:#d1d5db}
+.btn-row{display:flex;gap:12px;margin-top:12px}
+.btn{flex:1;background:var(--card2);border:1px solid #2a2a2a;padding:12px;border-radius:12px;color:var(--text);font-weight:600}
+.task{display:flex;justify-content:space-between;align-items:center;background:#1c1c1c;border:1px solid #262626;border-radius:14px;padding:14px;margin-bottom:10px;transition:0.3s}
+.task.done{opacity:0.6; border-color:var(--green)}
+.task-right{color:var(--green);font-weight:700}
+.task small{color:var(--muted);display:block;font-size:11px;margin-top:2px}
+.trust-row{display:flex;gap:10px;margin-bottom:16px}
+.trust{flex:1;background:var(--card);border:1px solid #262626;border-radius:18px;padding:12px;text-align:center}
+.trust p{font-size:12px;color:var(--muted)} .trust b{color:var(--green);font-size:14px}
+.trust a{color:var(--green);text-decoration:underline;font-size:13px}
+.withdraw-input{width:100%;background:#0e0e0e;border:1px solid #2a2a2a;border-radius:12px;padding:14px;color:#fff;margin-top:10px;outline:none}
+.wd-btn{width:100%;margin-top:12px;background:var(--green);color:#000;border:none;padding:14px;border-radius:12px;font-weight:800}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#fff;color:#000;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:600;display:none;z-index:99}
 </style>
 </head>
 <body>
-<div class="header">
-  <div><b>⚡ MindZap AI</b><div class="small">Verified on BSC</div></div>
-  <div class="badge">● LIVE</div>
-</div>
 
-<div class="card" style="text-align:center">
-  <div class="small">Total $ZAP Farmed</div>
-  <div class="balance" id="bal">0.00</div>
-  <div class="small" id="uname">Loading...</div>
-  <div class="row">
-    <div class="stat"><span class="small">Farming</span><b id="rate">0.000/h</b></div>
-    <div class="stat"><span class="small">Referrals</span><b id="refCount">0</b></div>
+<div class="top-card">
+  <div class="balance-label">Total Balance</div>
+  <div class="balance-main" id="totalBal">0 ZAP</div>
+  <div class="balance-sub">
+    <div class="badge">Farming: <b id="farmBal">0</b></div>
+    <div class="badge">Tasks: <b id="taskBal">0</b></div>
+    <div class="badge">Ref: <b id="refCount">0</b></div>
   </div>
-  <button class="btn btn-green" id="farmBtn" onclick="farm()">🌾 Start Farming (6h)</button>
-  <div class="small" id="timer" style="margin-top:8px"></div>
+  <button class="farm-btn" id="farmBtn" onclick="handleFarm()">Start Farming (6h)</button>
+  <div style="text-align:center;color:var(--muted);font-size:12px;margin-top:8px" id="farmTimer"></div>
 </div>
 
 <div class="card">
-  <b>👥 Refer & Earn 10%</b>
-  <div class="small" style="margin:6px 0">You get 10% from every friend's farm</div>
-  <input class="input" id="refLink" readonly>
-  <div class="row">
-    <button class="btn btn-dark" style="flex:1" onclick="copyRef()">Copy</button>
-    <button class="btn btn-dark" style="flex:1" onclick="shareRef()">Share</button>
+  <div class="card-title">👥 Refer & Earn 10%</div>
+  <div style="color:var(--muted);font-size:12px;margin-bottom:10px">You get 10% from every friend's farm</div>
+  <div class="ref-link" id="refLink">https://t.me/MindZapAIBot?start=...</div>
+  <div class="btn-row">
+    <button class="btn" onclick="copyRef()">Copy</button>
+    <button class="btn" onclick="shareRef()">Share</button>
   </div>
 </div>
 
 <div class="card">
-  <b>💎 Tasks</b>
-  <div class="task"><span>Join @MindZapAI</span><b style="color:var(--green)">+500</b></div>
-  <div class="task"><span>Follow Twitter</span><b style="color:var(--green)">+500</b></div>
-  <div class="task"><span>Invite 3 Friends</span><b style="color:var(--green)">+1000</b></div>
+  <div class="card-title">💎 Tasks</div>
+  <div id="tasks"></div>
 </div>
 
-<div class="row">
-  <div class="card" style="flex:1;text-align:center"><div class="small">Contract</div><a href="#" style="color:var(--green);font-size:12px">BSCScan ↗</a></div>
-  <div class="card" style="flex:1;text-align:center"><div class="small">Audit</div><span style="color:var(--green)">CertiK Soon</span></div>
-  <div class="card" style="flex:1;text-align:center"><div class="small">KYC</div><span style="color:var(--green)">Verified</span></div>
+<div class="trust-row">
+  <div class="trust"><p>Contract</p><a href="https://bscscan.com" target="_blank">BSCScan ↗</a></div>
+  <div class="trust"><p>Audit</p><b>CertiK Soon</b></div>
+  <div class="trust"><p>KYC</p><b>Verified</b></div>
 </div>
 
 <div class="card">
-  <b>💸 Withdraw $ZAP</b>
-  <div class="small">Min: 5000 ZAP | Network: BEP20</div>
-  <input class="input" id="wallet" placeholder="Paste your BEP20 wallet address">
-  <button class="btn btn-green" onclick="withdraw()">Withdraw to Wallet</button>
-  <div class="small" style="margin-top:8px">Withdrawal enabled after TGE (Nov 2026). Your balance is safe.</div>
+  <div class="card-title">💸 Withdraw $ZAP</div>
+  <div style="color:var(--muted);font-size:12px">Min: 5000 ZAP | Network: BEP20</div>
+  <input id="wallet" class="withdraw-input" placeholder="Paste your BEP20 wallet address">
+  <button class="wd-btn" onclick="withdraw()">Withdraw</button>
+  <div style="color:var(--muted);font-size:11px;margin-top:8px;text-align:center">Withdrawal enabled after TGE. Points will be converted to on-chain.</div>
 </div>
 
-<div class="card">
-  <b>🔴 Live Activity</b>
-  <div class="live" id="live"></div>
-</div>
+<div id="toast"></div>
 
 <script>
-const tg = Telegram.WebApp; tg.ready(); tg.expand();
-const user = tg.initDataUnsafe?.user;
-let uid = user?.id || Math.floor(Math.random()*1000000);
-let bal = parseFloat(localStorage.getItem('zap_'+uid)||'0');
-let refs = parseInt(localStorage.getItem('ref_'+uid)||'0');
-let farmingUntil = parseInt(localStorage.getItem('farmUntil_'+uid)||'0');
+const tg = window.Telegram.WebApp; tg.expand();
+const userId = tg.initDataUnsafe?.user?.id || Math.floor(Math.random()*10000000);
+const refLinkEl = document.getElementById('refLink');
+refLinkEl.innerText = `https://t.me/MindZapAIBot?start=${userId}`;
 
-document.getElementById('uname').innerText = user ? `Welcome, ${user.first_name}` : `ID: ${uid}`;
-document.getElementById('bal').innerText = bal.toFixed(3);
-document.getElementById('refCount').innerText = refs;
-document.getElementById('refLink').value = `https://t.me/MindZapAIBot?start=${uid}`;
+let data = JSON.parse(localStorage.getItem('mindzap_v2') || '{"total":0,"farm":0,"task":0,"refs":0,"tasksDone":[],"farmStart":0}');
 
-// Check referral from start_param
-const startParam = tg.initDataUnsafe?.start_param;
-if(startParam && startParam!=uid){
-  // In real app, call your backend to add referral
-  console.log('Referred by', startParam);
+let taskList = [
+  {id:'join', name:'Join @MindZapAI', reward:500, link:'https://t.me/MindZapAI', sub:'Telegram Channel'},
+  {id:'twitter', name:'Follow Twitter', reward:500, link:'https://x.com', sub:'Follow and RT pinned'},
+  {id:'invite3', name:'Invite 3 Friends', reward:1000, link:'', sub:'Invite 3 friends via referral'},
+];
+
+function save(){ localStorage.setItem('mindzap_v2', JSON.stringify(data)); renderBalances(); }
+function renderBalances(){
+  document.getElementById('totalBal').innerText = (data.farm + data.task).toLocaleString() + ' ZAP';
+  document.getElementById('farmBal').innerText = data.farm;
+  document.getElementById('taskBal').innerText = data.task;
+  document.getElementById('refCount').innerText = data.refs;
 }
-
-function farm(){
-  const now = Date.now();
-  if(farmingUntil > now){ tg.HapticFeedback.notificationOccurred('warning'); return; }
-  farmingUntil = now + 6*3600*1000;
-  localStorage.setItem('farmUntil_'+uid, farmingUntil);
-  tg.HapticFeedback.notificationOccurred('success');
-  tick();
+function renderTasks(){
+  const wrap = document.getElementById('tasks'); wrap.innerHTML='';
+  taskList.forEach(t=>{
+    const done = data.tasksDone.includes(t.id);
+    const div = document.createElement('div');
+    div.className = 'task' + (done?' done':'');
+    div.innerHTML = `<div><div>${t.name}</div><small>${t.sub}</small></div><div class="task-right">${done?'✓ Done':'+'+t.reward}</div>`;
+    if(!done) div.onclick = ()=>doTask(t);
+    wrap.appendChild(div);
+  });
 }
-function tick(){
+function doTask(t){
+  // Realistic flow
+  if(t.id==='invite3' && data.refs < 3){ toast('Need 3 referrals first'); return; }
+  if(t.link) window.open(t.link, '_blank');
+  const el = event.currentTarget;
+  el.innerHTML = `<div><div>${t.name}</div><small>Verifying...</small></div><div class="task-right">⏳</div>`;
+  
+  setTimeout(()=>{
+    data.tasksDone.push(t.id);
+    data.task += t.reward;
+    data.total = data.farm + data.task;
+    save();
+    renderTasks();
+    toast(`+${t.reward} ZAP Added!`);
+    // confetti effect
+    el.style.borderColor='#00e676';
+  }, 2200);
+}
+function handleFarm(){
   const now = Date.now();
-  if(farmingUntil > now){
-    let left = farmingUntil - now;
-    let h = Math.floor(left/3600000), m = Math.floor((left%3600000)/60000), s = Math.floor((left%60000)/1000);
-    document.getElementById('timer').innerText = `Farming ends in ${h}h ${m}m ${s}s`;
-    document.getElementById('rate').innerText = '0.500/h';
-    document.getElementById('farmBtn').innerText = '⛏️ Farming...';
-    // auto add balance slowly
-    bal += 0.0001; localStorage.setItem('zap_'+uid, bal);
-    document.getElementById('bal').innerText = bal.toFixed(3);
-  } else {
-    document.getElementById('timer').innerText = 'Click Start to Farm';
-    document.getElementById('farmBtn').innerText = '🌾 Start Farming (6h)';
-    document.getElementById('rate').innerText = '0.000/h';
+  if(data.farmStart && now - data.farmStart < 6*60*60*1000){
+    toast('Farming already running');
+    return;
   }
+  if(data.farmStart && now - data.farmStart >= 6*60*60*1000){
+    // claim
+    const reward = 1000;
+    data.farm += reward;
+    data.farmStart = 0;
+    save();
+    toast(`Claimed ${reward} ZAP!`);
+    document.getElementById('farmBtn').innerText='Start Farming (6h)';
+    return;
+  }
+  data.farmStart = now;
+  save();
+  startTimer();
 }
-setInterval(tick,1000); tick();
-
-function copyRef(){ navigator.clipboard.writeText(document.getElementById('refLink').value); tg.HapticFeedback.notificationOccurred('success'); alert('Referral Link Copied!'); }
-function shareRef(){ tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(document.getElementById('refLink').value)}&text=Farm $ZAP with me!`); }
+function startTimer(){
+  const btn = document.getElementById('farmBtn');
+  const timerEl = document.getElementById('farmTimer');
+  let iv = setInterval(()=>{
+    const diff = 6*60*60*1000 - (Date.now() - data.farmStart);
+    if(diff<=0){
+      clearInterval(iv);
+      btn.innerText='Claim 1000 ZAP';
+      btn.classList.remove('farming');
+      timerEl.innerText='Farming finished!';
+      return;
+    }
+    btn.classList.add('farming');
+    btn.innerText='Farming...';
+    const h = Math.floor(diff/3600000), m = Math.floor((diff%3600000)/60000), s = Math.floor((diff%60000)/1000);
+    timerEl.innerText = `${h}h ${m}m ${s}s left`;
+  },1000);
+}
+function copyRef(){ navigator.clipboard.writeText(refLinkEl.innerText); toast('Referral link copied'); }
+function shareRef(){ tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLinkEl.innerText)}&text=Join MindZap AI Mining!`); }
 function withdraw(){
-  let w = document.getElementById('wallet').value;
-  if(w.length < 10){ alert('Enter valid BEP20 address'); return; }
-  if(bal < 5000){ alert(`Minimum 5000 ZAP needed. You have ${bal.toFixed(2)}`); return; }
-  alert('✅ Withdraw request submitted!\\nPayout after TGE. Balance is locked safely.');
+  const w = document.getElementById('wallet').value.trim();
+  if(w.length<20){ toast('Enter valid BEP20 address'); return; }
+  if((data.farm+data.task)<5000){ toast('Minimum 5000 ZAP required'); return; }
+  toast('Withdraw request submitted! Will be processed after TGE');
 }
+function toast(msg){ const t=document.getElementById('toast'); t.innerText=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',2500); }
 
-// Fake live feed for trust
-const names = ['Arif','Sakib','Rahman','Alex','John','CryptoKing','Aisha'];
-const live = document.getElementById('live');
-setInterval(()=>{
-  let n = names[Math.floor(Math.random()*names.length)];
-  let amt = (Math.random()*200+50).toFixed(0);
-  let div = document.createElement('div');
-  div.innerHTML = `🟢 ${n}*** withdrew ${amt} ZAP - 2s ago`;
-  live.prepend(div);
-  if(live.children.length>6) live.lastChild.remove();
-}, 2500);
+// referral fake add for demo - backend e real count korbe
+if(tg.initDataUnsafe?.start_param){ data.refs++; save(); }
+
+renderBalances(); renderTasks();
+if(data.farmStart) startTimer();
 </script>
 </body>
 </html>
 """
 
-@app_flask.route('/')
-def home(): return FARM_HTML
-@app_flask.route('/health')
-def health(): return "OK"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    app_flask.run(host="0.0.0.0", port=port)
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("🐦 Follow Twitter", url=TWITTER)],
-        [InlineKeyboardButton("👥 Join Community", url="https://t.me/MindZapAI")],
-        [InlineKeyboardButton("✅ Verify", callback_data="verify")]
-    ]
-    await update.message.reply_text(
-        "⚡ Welcome to MindZap AI\n\nFarm $ZAP, Invite & Earn!\n\nComplete Tasks:\n1. Follow Twitter\n2. Join @MindZapAI\nThen Verify 👇",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-async def verify(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query; await q.answer()
-    try:
-        m = await context.bot.get_chat_member(CHANNEL, q.from_user.id)
-        if m.status in ['left','kicked']:
-            await q.edit_message_text("❌ Join @MindZapAI first!", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("👥 Join", url="https://t.me/MindZapAI")],[InlineKeyboardButton("🔁 Verify Again", callback_data="verify")]]))
-            return
-    except:
-        await q.answer("Make me ADMIN in @MindZapAI", show_alert=True); return
-    
-    url = os.environ.get("RENDER_EXTERNAL_URL") or f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME','')}"
-    if not url.startswith("http"): url = "https://" + url
-    kb = [[InlineKeyboardButton("🌾 Open Farming App", web_app=WebAppInfo(url=url))]]
-    await q.edit_message_text("🎉 Verified! Your Trusted Farming App is Ready 👇", reply_markup=InlineKeyboardMarkup(kb))
-
-def main():
-    threading.Thread(target=run_flask, daemon=True).start()
-    app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(verify, pattern="^verify$"))
-    app.run_polling()
-
-if __name__ == "__main__": main()
+# Flask route
+@app.route('/farm')
+def farm():
+    return render_template_string(FARM_HTML)
