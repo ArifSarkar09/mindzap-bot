@@ -4,14 +4,13 @@ import telebot
 from telebot import types
 
 TOKEN = os.environ.get("BOT_TOKEN", "")
-CHANNEL_USERNAME = os.environ.get("CHANNEL_USERNAME", "@MindZapAI") # change to your community
+CHANNEL_USERNAME = os.environ.get("CHANNEL_USERNAME", "@MindZapAI")
 TWITTER_URL = "https://x.com/MindZapAI"
 
 bot = telebot.TeleBot(TOKEN) if TOKEN else None
 app = Flask(__name__)
 
-# Temp DB - in production use real DB
-USER_DB = {} # {user_id: {"verified": bool}}
+USER_DB = {}
 
 def get_main_menu():
     kb = types.InlineKeyboardMarkup(row_width=1)
@@ -25,7 +24,6 @@ def get_main_menu():
 def get_farming_menu():
     kb = types.InlineKeyboardMarkup()
     kb.add(types.InlineKeyboardButton("🌾 Open Farming App", web_app=types.WebAppInfo(url="https://mindzap-bot.onrender.com/farm")))
-    kb.add(types.InlineKeyboardButton("📄 Contract", url="https://bscscan.com/"), types.InlineKeyboardButton("💬 Support", url=f"https://t.me/{CHANNEL_USERNAME.replace('@','')}"))
     return kb
 
 FARM_HTML = """
@@ -36,16 +34,16 @@ FARM_HTML = """
 body{background:var(--bg);color:#e6e8eb;font-family:Inter,system-ui;margin:0;padding:12px;padding-bottom:90px}
 .top{display:flex;justify-content:space-between;align-items:center;padding:8px 4px}
 .lang{border:1px solid var(--border);border-radius:20px;padding:4px;display:flex;gap:4px;background:var(--card)}
-.lang button{border:none;background:transparent;color:#888;padding:6px 12px;border-radius:16px;font-weight:700;cursor:pointer}
+.lang button{border:none;background:transparent;color:#888;padding:6px 14px;border-radius:16px;font-weight:800;cursor:pointer}
 .lang button.active{background:#fff;color:#000}
 .card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:18px;margin-bottom:12px}
-.balance-box{text-align:center;background:radial-gradient(300px at 50% -50%, #1a2233, var(--card));}
+.balance-box{text-align:center;background:radial-gradient(400px at 50% -100%, #1a2233, var(--card))}
 .balance-box h1{font-size:46px;margin:8px 0;font-weight:900;letter-spacing:-1.5px}
 .stats{display:flex;gap:8px;margin-top:14px}
 .stat{flex:1;background:#0a0d12;border:1px solid var(--border);border-radius:14px;padding:10px;text-align:center}
 .stat b{display:block;font-size:18px;margin-top:4px}
 .stat small{opacity:0.5;font-size:10px;letter-spacing:1px}
-.bar{height:12px;background:#0a0d12;border:1px solid var(--border);border-radius:20px;overflow:hidden;margin-top:18px;position:relative}
+.bar{height:12px;background:#0a0d12;border:1px solid var(--border);border-radius:20px;overflow:hidden;margin-top:18px}
 .fill{height:100%;width:0%;background:linear-gradient(90deg,var(--green), #69f0ae);transition:0.6s}
 .task{display:flex;justify-content:space-between;align-items:center;padding:14px;border:1px solid var(--border);border-radius:14px;margin-bottom:10px;background:#0f131a}
 .task-left{display:flex;align-items:center;gap:12px}
@@ -89,7 +87,7 @@ body{background:var(--bg);color:#e6e8eb;font-family:Inter,system-ui;margin:0;pad
     <div class="task" id="task2"><div class="task-left"><div class="icon">🐦</div><div><span class="task-name" data-en="Follow on X" data-zh="关注 X">Follow on X</span><br><small style="opacity:0.6">+500 ZAP</small></div></div><button class="btn btn-start" onclick="doTask('task2',500)">Start</button></div>
     <div class="task" id="task3"><div class="task-left"><div class="icon">👥</div><div><span class="task-name" data-en="Invite 3 Friends" data-zh="邀请3个好友">Invite 3 Friends</span><br><small style="opacity:0.6">+1000 ZAP</small></div></div><button class="btn btn-start" onclick="doTask('task3',1000)">Check</button></div>
   </div>
-  <div class="trust"><span>📄 BSCScan</span><span>🛡️ CertiK Soon</span><span>✅ KYC Verified</span><span id="t_users">👥 12,841 Users</span></div>
+  <div class="trust"><span>📄 BSCScan</span><span>🛡️ CertiK Soon</span><span>✅ KYC Verified</span><span>👥 12,841 Users</span></div>
 </div>
 
 <div class="card">
@@ -113,7 +111,6 @@ function applyLang(){
  document.querySelectorAll('.task-name').forEach(e=>{e.innerText=e.getAttribute('data-'+curLang)});
  if(!data.farmStart) document.getElementById('farmBtn').innerText=d.start_farm;
 }
-
 let tg=Telegram.WebApp;tg.expand();
 let uid=tg.initDataUnsafe?.user?.id||"uid_"+Math.floor(Math.random()*1e6);
 let key='zap_real_'+uid;
@@ -131,8 +128,12 @@ function updateUI(){
 }
 function doTask(id,reward){
  let btn=document.querySelector('#'+id+' button');if(btn.disabled)return;
- let link=id=='task1'?'https://t.me/MindZapAI':id=='task2'?'https://x.com':'';
- if(link) window.open(link,'_blank');
+ let link="";
+ if(id=='task1') link="https://t.me/MindZapAI";
+ if(id=='task2') link="https://x.com/MindZapAI";
+ if(link){
+   try{ tg.openLink(link); } catch(e){ window.open(link, '_blank'); }
+ }
  btn.innerText='Verifying...';btn.className='btn btn-check';
  setTimeout(()=>{
   if(id=='task3'&&data.refCount<3){btn.innerText='Need 3 Friends';btn.className='btn btn-start';return;}
@@ -157,7 +158,7 @@ function farmAction(){if(data.farmStart&&data.farmingTemp>=600)claimFarm();else 
 function startFarm(){data.farmStart=Date.now();data.farmingTemp=0;save();farmLoop()}
 function claimFarm(){data.farm+=data.farmingTemp;data.farmingTemp=0;data.farmStart=0;save();clearInterval(farmInterval);document.getElementById('farmFill').style.width='0%';document.getElementById('farmPercent').innerText='0%';document.getElementById('farmBtn').innerText=I18N[curLang].start_farm}
 function copyRef(){navigator.clipboard.writeText(document.getElementById('refLink').innerText);alert(curLang=='zh'?'已复制':'Copied!')}
-function withdraw(){let w=document.getElementById('wallet').value.trim();if(!w.startsWith('0x'))return alert('Invalid BEP20');let total=data.farm+data.task+data.ref;if(total<5000)return alert(curLang=='zh'?'至少5000 ZAP':'Need 5000 ZAP, you have '+total);alert('Withdraw request saved: '+total+' ZAP');}
+function withdraw(){let w=document.getElementById('wallet').value.trim();if(!w.startsWith('0x'))return alert('Invalid BEP20');let total=data.farm+data.task+data.ref;if(total<5000)return alert(curLang=='zh'?'至少需要5000 ZAP':'Need 5000 ZAP, you have '+total);alert('Withdraw request saved: '+total+' ZAP');}
 updateUI();setLang(curLang);if(data.farmStart)farmLoop();
 </script></body></html>
 """
@@ -167,14 +168,13 @@ def start(m):
     uid = m.from_user.id
     if uid not in USER_DB:
         USER_DB[uid] = {"verified": False}
-    
     if USER_DB[uid]["verified"]:
-        bot.send_message(m.chat.id, "🌾 Farming is active for you!", reply_markup=get_farming_menu())
+        bot.send_message(m.chat.id, "🌾 Farming is active!", reply_markup=get_farming_menu())
     else:
         txt = (
             "🧠 *MindZap AI Agent | $ZAP Airdrop*\\n\\n"
-            "Farm $ZAP with MindZap AI Agent on Telegram.\\n\\n"
-            "✅ Complete 2 steps to unlock farming:\\n"
+            "Farm $ZAP with MindZap AI Agent.\\n\\n"
+            "Complete to unlock:\\n"
             "1️⃣ Join Community\\n"
             "2️⃣ Follow on X\\n\\n"
             "Then click *Verify & Continue*"
@@ -185,29 +185,25 @@ def start(m):
 def verify(c):
     uid = c.from_user.id
     try:
-        # Real check for Telegram channel
         member = bot.get_chat_member(CHANNEL_USERNAME, uid)
         is_member = member.status in ['member','administrator','creator']
     except:
-        is_member = True # allow if bot is not admin for testing - set to False for strict
-
+        is_member = True
     if not is_member:
-        bot.answer_callback_query(c.id, "❌ Please join community first!", show_alert=True)
+        bot.answer_callback_query(c.id, "Please join community first!", show_alert=True)
         return
-
     USER_DB[uid] = {"verified": True}
-    bot.answer_callback_query(c.id, "✅ Verified!")
-    bot.send_message(c.message.chat.id, "🎉 *Verified! Your Trusted Farming App is Ready* 👇", parse_mode="Markdown", reply_markup=get_farming_menu())
+    bot.answer_callback_query(c.id, "Verified!")
+    bot.send_message(c.message.chat.id, "🎉 Verified! Your Farming App is Ready 👇", reply_markup=get_farming_menu())
 
 @app.route('/')
-def home(): return "MindZap Bot Live"
+def home(): return "Live"
 
 @app.route('/farm')
 def farm(): return FARM_HTML
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    if bot is None: return "no token", 500
     update = telebot.types.Update.de_json(request.get_data().decode('utf-8'))
     bot.process_new_updates([update])
     return 'ok'
